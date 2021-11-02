@@ -1,0 +1,58 @@
+<html>
+<head>
+<style>
+.fixed {
+	font-family: monospace;
+}
+.addr { color: orange }
+.ukn { color: blue }
+.data { color: green }
+.checksum { color: red }
+</style>
+</head>
+<body>
+	<div>
+<p>Around 2012, Philips released several bluetooth dock stations : AS111 AS140 AS381 AS851 (maybe more ?). It seems there are multiple revisions for each one (05,12,37)<br />
+It came with an iOS and Android app : <a href="https://play.google.com/store/apps/details?id=com.philips.dockstudio&hl=fr&gl=US">DockStudio</a>
+</p>
+
+<p><a href="https://www.manualslib.com/manual/1142932/Philips-As111-Series.html">AS111 service manual</a><br />
+<a href="https://www.p4c.philips.com/files/a/as111_12/as111_12_fuz_eng.bin">AS111 firmware update</a> downloaded via the app
+</p>
+
+<p>FW update is plaintext and contains 3 intel hex-like payloads : A, B and C that I understood as (here with payload A):</p>
+<pre class="fixed">
+#A
+0068    &lt;-- decimal number of lines
+<span class="addr">WWWW</span><span class="ukn">XX</span></span><span class="data">YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY</span><span class="checksum">ZZ</span>
+[at least 67 more lines like the previous one]
+A#E882
+</pre>
+<p>
+"E882" is probably a checksum and sent as-is to the dock, is "0000" for C<br/>
+Field <span class="addr">WWWW</span> is the hex adress<br/>
+Field <span class="data">Y[...]</span> is hex data (128 bits)<br />
+Field <span class="ukn">XX</span> is unknown : seems random for A and B, set to 00 for C<br/>
+Field <span class="checksum">ZZ</span> looks to be a checksum : the sum of the hex values of the entire line is 0 mod 256
+</p>
+<p>
+Payload C has an unknown header, then starting at 0x1000 is <a href="https://www.youtube.com/watch?v=TeCQatNcF20">Sanyo/OnSemi LC87 code</a>, chip is shown in the schematic but not populated on my AS111/12 (too bad, I wanted to play with the infamous 9-bit arch !)
+</p>
+<p>
+Which leaves payload A (<a href="A.bin">file</a>) and B (<a href="B.bin">file</a>) for the IT11AS007 (<a href="P1180954.JPG">appears as IT0B02 on the board</a>), they have similar code and structure :<br />
+A: 128 bits of data at 0x300<br />
+A: 8576 bits of data at 0x500<br />
+B: 128 bits of data at 0x380<br />
+B: 8576 bits of data at 0x8000<br />
+<br />
+A and B don't overlap each other and the mobile app basically asks the dock station which one to use. I guess it's the same code, the updates alternate between the 2 locations to ensure the data is well written before switching.
+</p>
+<p>
+I produced a "shifted" version for B (<a href="Bshift.bin">file</a>) to match A locations and tried some binary comparisons (xor etc.). Notably subtraction of each bytes gives interesting pattern, here is a diff between A, shifted_B and (A minus shifted_B) : <a href="diff.html">heavy html ahead</a><br />
+subtraction gives recurring 2-bytes pairs (e.g : 0x85 0x7B or 0x8F 0x71), summing the 2 byte gives 0x100 but I'm not sure if it's relevant of anything.<br >
+So far, I failed to identify the architecture used (it could be encrypted but the LC87 code wasn't).<br />
+Looking at the pinout I've found some similarities with <a href="SAM.png">samsung/zilog SAM chips</a> but that's all.
+</p>
+	</div>
+</body>
+</html>
